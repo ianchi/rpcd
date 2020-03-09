@@ -183,7 +183,7 @@ rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 				pos += sprintf(pos, "Mixed ");
 
 			for (wpa_version = 0; wpa_version < 3; wpa_version++)
-				if (c->wpa_version & (1 << wpa_version))
+				if (e->wpa_version & (1 << wpa_version))
 					if (wpa_version)
 						pos += sprintf(pos, "WPA%d/", wpa_version + 1);
 					else
