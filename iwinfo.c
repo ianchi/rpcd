@@ -184,10 +184,12 @@ rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 
 			for (wpa_version = 0; wpa_version < 3; wpa_version++)
 				if (e->wpa_version & (1 << wpa_version))
+				{
 					if (wpa_version)
 						pos += sprintf(pos, "WPA%d/", wpa_version + 1);
 					else
 						pos += sprintf(pos, "WPA/");
+				}
 
 			sprintf( pos - 1, " ");
 
