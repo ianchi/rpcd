@@ -131,8 +131,11 @@ rpc_iwinfo_call_hardware_id(const char *name)
 static void
 rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 {
-	int ciph, wpa_version;
+	int ciph, wpa_version, n = 0;
 	void *c, *d;
+
+	char desc[512];
+	char *pos = desc;
 
 	c = blobmsg_open_table(&buf, name);
 
@@ -151,6 +154,16 @@ rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 				blobmsg_add_string(&buf, NULL, "shared");
 
 			blobmsg_close_array(&buf, d);
+
+			if (e->auth_algs & (IWINFO_AUTH_OPEN | IWINFO_AUTH_SHARED))
+				pos += sprintf(desc, "WEP Open/Shared");
+			else if (e->auth_algs & IWINFO_AUTH_OPEN)
+				pos += sprintf(desc, "WEP Open System");
+			else if (e->auth_algs & IWINFO_AUTH_SHARED)
+				pos += sprintf(desc, "WEP Shared Auth");
+			else
+				pos += sprintf(desc, "WEP");
+
 		}
 		else
 		{
@@ -158,28 +171,60 @@ rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 
 			for (wpa_version = 1; wpa_version <= 3; wpa_version++)
 				if (e->wpa_version & (1 << (wpa_version - 1)))
+				{
 					blobmsg_add_u32(&buf, NULL, wpa_version);
+					n++;
+				}
 
 			blobmsg_close_array(&buf, d);
 
 
+			if (n > 1)
+				pos += sprintf(pos, "Mixed ");
+
+			for (wpa_version = 0; wpa_version < 3; wpa_version++)
+				if (c->wpa_version & (1 << wpa_version))
+					if (wpa_version)
+						pos += sprintf(pos, "WPA%d/", wpa_version + 1);
+					else
+						pos += sprintf(pos, "WPA/");
+
+			sprintf( pos - 1, " ");
+
 			d = blobmsg_open_array(&buf, "authentication");
 
 			if (e->auth_suites & IWINFO_KMGMT_PSK)
+			{
 				blobmsg_add_string(&buf, NULL, "psk");
+				pos += sprintf(pos, "PSK/");
+			}
 
 			if (e->auth_suites & IWINFO_KMGMT_8021x)
+			{
 				blobmsg_add_string(&buf, NULL, "802.1x");
+				pos += sprintf(pos, "802.1X/");
+			}
 
 			if (e->auth_suites & IWINFO_KMGMT_SAE)
+			{
 				blobmsg_add_string(&buf, NULL, "sae");
+				pos += sprintf(pos, "SAE/");
+			}
 
 			if (e->auth_suites & IWINFO_KMGMT_OWE)
+			{
 				blobmsg_add_string(&buf, NULL, "owe");
+				pos += sprintf(pos, "OWE/");
+			}
 
 			if (!e->auth_suites ||
 				(e->auth_suites & IWINFO_KMGMT_NONE))
+			{
 				blobmsg_add_string(&buf, NULL, "none");
+				pos += sprintf(pos, "NONE/");
+			}
+
+			pos--;
 
 			blobmsg_close_array(&buf, d);
 		}
@@ -187,32 +232,66 @@ rpc_iwinfo_add_encryption(const char *name, struct iwinfo_crypto_entry *e)
 		d = blobmsg_open_array(&buf, "ciphers");
 		ciph = e->pair_ciphers | e->group_ciphers;
 
+		pos += sprintf(pos, " (");
+
 		if (ciph & IWINFO_CIPHER_WEP40)
+		{
 			blobmsg_add_string(&buf, NULL, "wep-40");
+			pos += sprintf(pos, "WEP-40, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_WEP104)
+		{
 			blobmsg_add_string(&buf, NULL, "wep-104");
+			pos += sprintf(pos, "WEP-104, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_TKIP)
+		{
 			blobmsg_add_string(&buf, NULL, "tkip");
+			pos += sprintf(pos, "TKIP, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_CCMP)
+		{
 			blobmsg_add_string(&buf, NULL, "ccmp");
+			pos += sprintf(pos, "CCMP, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_WRAP)
+		{
 			blobmsg_add_string(&buf, NULL, "wrap");
+			pos += sprintf(pos, "WRAP, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_AESOCB)
+		{
 			blobmsg_add_string(&buf, NULL, "aes-ocb");
+			pos += sprintf(pos, "AES=OCB, ");
+		}
 
 		if (ciph & IWINFO_CIPHER_CKIP)
+		{
 			blobmsg_add_string(&buf, NULL, "ckip");
+			pos += sprintf(pos, "CKIP, ");
+		}
 
 		if (!ciph || (ciph & IWINFO_CIPHER_NONE))
+		{
 			blobmsg_add_string(&buf, NULL, "none");
+			pos += sprintf(pos, "NONE, ");
+		}
+
+		pos -= 2;
+		pos += sprintf(pos, ")");
+		*pos = 0;
 
 		blobmsg_close_array(&buf, d);
 	}
+	else
+		strcpy(desc, "Unsecured");
+
+	blobmsg_add_string(&buf, "description", desc);
 
 	blobmsg_close_table(&buf, c);
 }
